@@ -1,0 +1,8 @@
+*.simg
+*.fastq.gz
+.nextflow.log*
+.nextflow/*
+work/*
+nextflow
+*.fa
+ref/*
