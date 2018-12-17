@@ -6,3 +6,5 @@ work/*
 nextflow
 *.fa
 ref/*
+logs/*
+output/*

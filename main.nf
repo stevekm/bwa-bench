@@ -1,14 +1,46 @@
 params.refDir = "ref/bwa/hg19"
 params.inputDir = "input"
+params.outputDir = "output"
+params.maxCPUs = 32
+params.minCPUs = 1
 
+def maxCPUs = params.maxCPUs.toInteger()
+def minCPUs = params.minCPUs.toInteger()
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd HH:mm:ss')}"
+def workflowTimestamp_str = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+def time_outputFile = "times-${workflowTimestamp_str}.tsv"
+
+
+log.info "~~~~~~~ BWA Benchmark Pipeline ~~~~~~~"
+log.info "* Launch time:        ${workflowTimestamp}"
+log.info "* Min CPUs:           ${minCPUs}"
+log.info "* Max CPUs:           ${maxCPUs}"
+log.info "* Time Log File:      ${time_outputFile}"
+log.info "* Output Dir:         ${params.outputDir}"
+log.info "* Project dir:        ${workflow.projectDir}"
+log.info "* Launch dir:         ${workflow.launchDir}"
+log.info "* Work dir:           ${workflow.workDir.toUriString()}"
+log.info "* Profile:            ${workflow.profile ?: '-'}"
+log.info "* Script name:        ${workflow.scriptName ?: '-'}"
+log.info "* Script ID:          ${workflow.scriptId ?: '-'}"
+log.info "* Container engine:   ${workflow.containerEngine?:'-'}"
+log.info "* Workflow session:   ${workflow.sessionId}"
+log.info "* Nextflow run name:  ${workflow.runName}"
+log.info "* Nextflow version:   ${workflow.nextflow.version}, build ${workflow.nextflow.build} (${workflow.nextflow.timestamp})"
+log.info "* Launch command:\n${workflow.commandLine}\n"
+
+// input sample data
 Channel.from([
     [file("${params.inputDir}/SeraCare-1to1-Positive_S2_L001_R1_001.fastq.gz"), file("${params.inputDir}/SeraCare-1to1-Positive_S2_L001_R2_001.fastq.gz")]
     ]).set { samples }
 
+// directory with reference files needed
 Channel.fromPath("${params.refDir}").set { refDir }
 
-Channel.from(0..32).set { cpu_threads }
+// make a list of the CPU threads to run on
+Channel.from(minCPUs..maxCPUs).set { cpu_threads }
 
+// download the sample data; ~743MB
 process download_samples {
     storeDir "${params.inputDir}"
 
@@ -26,6 +58,7 @@ process download_samples {
     """
 }
 
+// download reference data; ~8GB
 process download_ref {
     storeDir "${params.refDir}"
 
@@ -51,29 +84,42 @@ process download_ref {
     """
 }
 
-def nslots = 0..32
+repeaters = 1..5
 
 process align {
-    // first pass alignment with BWA
-    tag "${slots}"
+    echo true
+    tag "${threads}-${rep}"
     cpus "${threads}"
-    beforeScript "export NTHREADS=${threads}; ${process.beforeScript}"
+    beforeScript "export NTHREADS=${threads}; ${params.beforeScript}"
+    afterScript "${params.afterScript}"
 
     input:
     set file(fastqR1), file(fastqR2), file(refDir), val(threads) from samples.combine(refDir).combine(cpu_threads)
-    // output:
-    // set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2
-    // val(sampleID) into done_alignment
+    each rep from repeaters
+
+    output:
+    file("${output_tsv}") into align_times
 
     script:
-    output = "sample.sam"
+    output_sam = "sample.sam"
+    output_tsv = "time.tsv"
     sampleID = "SeraCare"
     """
+    NODE=\$(uname -n)
+    ALIGNSTART=\$(date +%s)
+
     bwa mem \
     -M -v 1 \
     -t \${NSLOTS:-\${NTHREADS:-1}} \
     -R '@RG\\tID:${sampleID}\\tSM:${sampleID}\\tLB:${sampleID}\\tPL:ILLUMINA' \
     "${refDir}/genome.fa" \
-    "${fastqR1}" "${fastqR2}" > /dev/null
+    "${fastqR1}" "${fastqR2}" > "${output_sam}"
+
+    ALIGNSTOP=\$((\$(date +%s) - \${ALIGNSTART:-0}))
+
+    printf "${threads}\t\${ALIGNSTOP}\t\${NODE}\n" > "${output_tsv}"
+
+    rm -f "${output_sam}"
     """
 }
+align_times.collectFile(name: "${time_outputFile}", storeDir: ".")
