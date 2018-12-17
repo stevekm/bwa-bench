@@ -127,9 +127,11 @@ process align {
 
     ALIGNSTOP=\$((\$(date +%s) - \${ALIGNSTART:-0}))
 
-    printf "${threads}\t\${ALIGNSTOP}\t\${NODE}\t\${CPULABEL}\n" > "${output_tsv}"
+    CPUSEC="\$(grep 'Real time' .command.err | cut -d ';' -f2 | sed -e 's|^[^[:digit:]]*\\([[:digit:]]*\\.[[:digit:]]*\\).*\$|\\1|')"
+
+    printf "${threads}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\n" > "${output_tsv}"
 
     rm -f "${output_sam}"
     """
 }
-align_times.collectFile(name: "${time_outputFile}", storeDir: ".")
+align_times.collectFile(name: "${time_outputFile}", storeDir: "${params.outputDir}")
