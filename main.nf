@@ -16,6 +16,7 @@ log.info "~~~~~~~ BWA Benchmark Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
 log.info "* Min CPUs:           ${minCPUs}"
 log.info "* Max CPUs:           ${maxCPUs}"
+log.info "* Reps:               ${reps}"
 log.info "* Time Log File:      ${time_outputFile}"
 log.info "* Output Dir:         ${params.outputDir}"
 log.info "* Project dir:        ${workflow.projectDir}"
@@ -91,6 +92,7 @@ process align {
     echo true
     tag "${threads}-${rep}"
     cpus "${threads}"
+    memory { 2.GB * "${threads}".toInteger() }
     beforeScript "export NTHREADS=${threads}; ${params.beforeScript}"
     afterScript "${params.afterScript}"
 
@@ -102,13 +104,17 @@ process align {
     file("${output_tsv}") into align_times
 
     script:
+    mem = 2 * "${threads}".toInteger()
     output_sam = "sample.sam"
     output_tsv = "time.tsv"
     sampleID = "SeraCare"
     """
+    # name of current system
     NODE=\$(uname -n)
+    # get the number of CPU threads to use
     JOBTHREADS=\${NSLOTS:-\${NTHREADS:-1}}
 
+    # get the type of CPU being used
     if [ "\$(uname)" == "Darwin" ]; then
     CPULABEL="\$(sysctl -n machdep.cpu.brand_string)"
     elif [ "\$(uname)" == "Linux" ]; then
@@ -116,6 +122,8 @@ process align {
     else
     CPULABEL="none"
     fi
+
+    printf "time start: %s" "\$(date +"%Y-%m-%d %H:%M:%S")"
 
     ALIGNSTART=\$(date +%s)
 
@@ -128,9 +136,11 @@ process align {
 
     ALIGNSTOP=\$((\$(date +%s) - \${ALIGNSTART:-0}))
 
+    printf "time stop: %s" "\$(date +"%Y-%m-%d %H:%M:%S")"
+
     CPUSEC="\$(grep 'Real time' .command.err | cut -d ';' -f2 | sed -e 's|^[^[:digit:]]*\\([[:digit:]]*\\.[[:digit:]]*\\).*\$|\\1|')"
 
-    printf "\${JOBTHREADS}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\n" > "${output_tsv}"
+    printf "\${JOBTHREADS}\t${mem}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\n" > "${output_tsv}"
 
     rm -f "${output_sam}"
     """
