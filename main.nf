@@ -31,9 +31,9 @@ log.info "* Nextflow version:   ${workflow.nextflow.version}, build ${workflow.n
 log.info "* Launch command:\n${workflow.commandLine}\n"
 
 // input sample data
-Channel.from([
-    [file("${params.inputDir}/SeraCare-1to1-Positive_S2_L001_R1_001.fastq.gz"), file("${params.inputDir}/SeraCare-1to1-Positive_S2_L001_R2_001.fastq.gz")]
-    ]).set { samples }
+// Channel.from([
+//     [file("${params.inputDir}/SeraCare-1to1-Positive_S2_L001_R1_001.fastq.gz"), file("${params.inputDir}/SeraCare-1to1-Positive_S2_L001_R2_001.fastq.gz")]
+//     ]).set { samples }
 
 // directory with reference files needed
 Channel.fromPath("${params.refDir}").set { refDir }
@@ -49,8 +49,8 @@ process download_samples {
     val(x) from Channel.from('')
 
     output:
-    file('SeraCare-1to1-Positive_S2_L001_R1_001.fastq.gz')
-    file('SeraCare-1to1-Positive_S2_L001_R2_001.fastq.gz')
+    set file('SeraCare-1to1-Positive_S2_L001_R1_001.fastq.gz'), file('SeraCare-1to1-Positive_S2_L001_R2_001.fastq.gz') into sample_fastqs
+
 
     script:
     """
@@ -95,7 +95,7 @@ process align {
     afterScript "${params.afterScript}"
 
     input:
-    set file(fastqR1), file(fastqR2), file(refDir), val(threads) from samples.combine(refDir).combine(cpu_threads)
+    set file(fastqR1), file(fastqR2), file(refDir), val(threads) from sample_fastqs.combine(refDir).combine(cpu_threads)
     each rep from repeaters
 
     output:
@@ -107,6 +107,7 @@ process align {
     sampleID = "SeraCare"
     """
     NODE=\$(uname -n)
+    JOBTHREADS=\${NSLOTS:-\${NTHREADS:-1}}
 
     if [ "\$(uname)" == "Darwin" ]; then
     CPULABEL="\$(sysctl -n machdep.cpu.brand_string)"
@@ -120,7 +121,7 @@ process align {
 
     bwa mem \
     -M -v 1 \
-    -t \${NSLOTS:-\${NTHREADS:-1}} \
+    -t \${JOBTHREADS} \
     -R '@RG\\tID:${sampleID}\\tSM:${sampleID}\\tLB:${sampleID}\\tPL:ILLUMINA' \
     "${refDir}/genome.fa" \
     "${fastqR1}" "${fastqR2}" > "${output_sam}"
@@ -129,7 +130,7 @@ process align {
 
     CPUSEC="\$(grep 'Real time' .command.err | cut -d ';' -f2 | sed -e 's|^[^[:digit:]]*\\([[:digit:]]*\\.[[:digit:]]*\\).*\$|\\1|')"
 
-    printf "${threads}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\n" > "${output_tsv}"
+    printf "\${JOBTHREADS}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\n" > "${output_tsv}"
 
     rm -f "${output_sam}"
     """
