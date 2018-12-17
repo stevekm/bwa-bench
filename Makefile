@@ -39,6 +39,7 @@ EP:=
 RP:=
 run: install
 	if grep -q 'bigpurple' <<<'$(HOSTNAME)'; then $(MAKE) run-log RP='-profile bigpurple'; \
+	elif grep -q 'phoenix' <<<'$(HOSTNAME)'; then module unload java && module load java/1.8 && $(MAKE) run-log RP='-profile phoenix'; \
 	elif [ "$$(uname)" == "Darwin" ]; then $(MAKE) conda run-log RP='-profile conda'; \
 	else $(MAKE) run-log ; fi
 run-log:

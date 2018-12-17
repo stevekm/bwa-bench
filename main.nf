@@ -68,15 +68,19 @@ process download_ref {
     val(x) from Channel.from('')
 
     output:
-    file('genome.fa')
-    file('genome.fa.amb')
-    file('genome.fa.ann')
-    file('genome.fa.bwt')
-    file('genome.fa.pac')
-    file('genome.fa.sa')
+    file("${output_dir}/genome.fa")
+    file("${output_dir}/genome.fa.amb")
+    file("${output_dir}/genome.fa.ann")
+    file("${output_dir}/genome.fa.bwt")
+    file("${output_dir}/genome.fa.pac")
+    file("${output_dir}/genome.fa.sa")
+    file("${output_dir}") into refDir_ch
 
     script:
+    output_dir = "hg19"
     """
+    mkdir "${output_dir}"
+    cd "${output_dir}"
     wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref/BWA/hg19/genome.fa
     wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref/BWA/hg19/genome.fa.amb
     wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref/BWA/hg19/genome.fa.ann
@@ -89,15 +93,23 @@ process download_ref {
 repeaters = 1..reps
 
 process align {
-    echo true
     tag "${threads}-${rep}"
-    cpus "${threads}"
+    cpus { if (  workflow.profile == 'phoenix'){
+            null
+        } else {
+            "${threads}"
+            } }
     memory { 2.GB * "${threads}".toInteger() }
+    clusterOptions { if (  workflow.profile == 'phoenix'){
+            "-pe threaded ${threads} -cwd"
+        } else {
+            null
+            } }
     beforeScript "export NTHREADS=${threads}; ${params.beforeScript}"
     afterScript "${params.afterScript}"
 
     input:
-    set file(fastqR1), file(fastqR2), file(refDir), val(threads) from sample_fastqs.combine(refDir).combine(cpu_threads)
+    set file(fastqR1), file(fastqR2), file(refDir), val(threads) from sample_fastqs.combine(refDir_ch).combine(cpu_threads)
     each rep from repeaters
 
     output:
