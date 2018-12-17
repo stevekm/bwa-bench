@@ -1,4 +1,4 @@
-params.refDir = "ref/bwa/hg19"
+params.refDir = "ref/bwa/"
 params.inputDir = "input"
 params.outputDir = "output"
 params.maxCPUs = 32
