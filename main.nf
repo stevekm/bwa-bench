@@ -99,7 +99,7 @@ process align {
         } else {
             "${threads}"
             } }
-    memory { 2.GB * "${threads}".toInteger() }
+    memory { 4.GB * "${threads}".toInteger() }
     clusterOptions { if (  workflow.profile == 'phoenix'){
             "-pe threaded ${threads} -cwd"
         } else {
