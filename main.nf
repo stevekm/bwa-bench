@@ -3,13 +3,14 @@ params.inputDir = "input"
 params.outputDir = "output"
 params.maxCPUs = 32
 params.minCPUs = 1
+params.reps = 3
 
 def maxCPUs = params.maxCPUs.toInteger()
 def minCPUs = params.minCPUs.toInteger()
 def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd HH:mm:ss')}"
 def workflowTimestamp_str = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
 def time_outputFile = "times-${workflowTimestamp_str}.tsv"
-
+def reps = params.reps.toInteger()
 
 log.info "~~~~~~~ BWA Benchmark Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
@@ -84,7 +85,7 @@ process download_ref {
     """
 }
 
-repeaters = 1..5
+repeaters = 1..reps
 
 process align {
     echo true
@@ -106,6 +107,15 @@ process align {
     sampleID = "SeraCare"
     """
     NODE=\$(uname -n)
+
+    if [ "\$(uname)" == "Darwin" ]; then
+    CPULABEL="\$(sysctl -n machdep.cpu.brand_string)"
+    elif [ "\$(uname)" == "Linux" ]; then
+    CPULABEL="\$(cat /proc/cpuinfo | grep 'model name' | head -1 | cut -d ':' -f2 | sed -e 's|^ ||')"
+    else
+    CPULABEL="none"
+    fi
+
     ALIGNSTART=\$(date +%s)
 
     bwa mem \
@@ -117,7 +127,7 @@ process align {
 
     ALIGNSTOP=\$((\$(date +%s) - \${ALIGNSTART:-0}))
 
-    printf "${threads}\t\${ALIGNSTOP}\t\${NODE}\n" > "${output_tsv}"
+    printf "${threads}\t\${ALIGNSTOP}\t\${NODE}\t\${CPULABEL}\n" > "${output_tsv}"
 
     rm -f "${output_sam}"
     """

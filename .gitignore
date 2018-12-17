@@ -8,3 +8,6 @@ nextflow
 ref/*
 logs/*
 output/*
+*.html
+*.html*
+trace.txt*
