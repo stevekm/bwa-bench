@@ -99,7 +99,13 @@ process align {
         } else {
             "${threads}"
             } }
-    memory { 4.GB * "${threads}".toInteger() }
+    memory {
+        if (  workflow.profile == 'bigpurple'){ // bigpurple complains a lot about memory
+            8.GB * "${threads}".toInteger()
+        } else {
+            4.GB * "${threads}".toInteger()
+        }
+    }
     clusterOptions { if (  workflow.profile == 'phoenix'){
             "-pe threaded ${threads} -cwd"
         } else {
@@ -116,7 +122,8 @@ process align {
     file("${output_tsv}") into align_times
 
     script:
-    mem = 2 * "${threads}".toInteger()
+    // mem = 2 * "${threads}".toInteger()
+    mem = 'NA'
     output_sam = "sample.sam"
     output_tsv = "time.tsv"
     sampleID = "SeraCare"
