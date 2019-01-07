@@ -3,7 +3,7 @@ HOSTNAME:=$(shell uname -n)
 UNAME:=$(shell uname)
 TIMESTAMP:=$(shell date +%s)
 TIMESTAMP_str:=$(shell date +"%Y-%m-%d-%H-%M-%S")
-
+DIRNAME:=$(shell python -c 'import os; print(os.path.basename(os.path.realpath(".")))')
 # no default action
 none:
 
@@ -32,7 +32,8 @@ endif
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 MAXCPUS:=$(shell getconf _NPROCESSORS_ONLN)
-LOGFILE:=logs/bwa-bench.$(TIMESTAMP_str).log
+LOGDIR:=logs
+LOGFILE:=$(LOGDIR)/bwa-bench.$(TIMESTAMP_str).log
 # extra params (from user)
 EP:=
 # run params (from makefile)
@@ -45,10 +46,25 @@ run: install
 run-log:
 	$(MAKE) run-recurse 2>&1 | tee -a "$(LOGFILE)"
 run-recurse:
-	./nextflow run main.nf --maxCPUs "$(MAXCPUS)" $(RP) $(EP)
+	NXF_VER=18.12.0-edge ./nextflow -trace nextflow.executor run main.nf --maxCPUs "$(MAXCPUS)" $(RP) $(EP)
 
 
 
+
+# save a record of the most recent Nextflow run completion
+PRE:=
+RECDIR:=recorded-runs/$(PRE)$(DIRNAME)_$(TIMESTAMP_str)
+STDOUTLOGPATH:=
+STDOUTLOG:=
+ALL_LOGS:=
+record: STDOUTLOGPATH=$(shell ls -d -1t $(LOGDIR)/bwa-bench.*.log | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+record: STDOUTLOG=$(shell basename "$(STDOUTLOGPATH)")
+record: ALL_LOGS=$(shell find "$(LOGDIR)" -type f -name '*$(STDOUTLOG)*')
+record:
+	@mkdir -p "$(RECDIR)" && \
+	cp -a *.html trace.txt .nextflow.log main.nf nextflow.config "$(RECDIR)/" && \
+	for item in $(ALL_LOGS); do cp -a "$${item}" "$(RECDIR)/"; done ; \
+	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
 # ~~~~~ CLEANUP ~~~~~ #
 # commands to clean out items in the current directory after running the pipeline
