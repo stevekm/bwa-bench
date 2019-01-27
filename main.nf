@@ -102,6 +102,8 @@ process align {
     memory {
         if (  workflow.profile == 'bigpurple'){ // bigpurple complains a lot about memory
             8.GB * "${threads}".toInteger()
+        } else if (  workflow.profile == 'bigpurpleModule'){ 
+            8.GB * "${threads}".toInteger()
         } else {
             4.GB * "${threads}".toInteger()
         }
