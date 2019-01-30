@@ -94,7 +94,7 @@ repeaters = 1..reps
 
 process align {
     tag "${prefix}"
-    publishDir "${params.outputDir}/${workflowTimestamp_str}", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/${workflow.profile ?: 'no_profile'}/${workflowTimestamp_str}", overwrite: true, mode: 'copy'
     cpus { if (  workflow.profile == 'phoenix'){
             null
         } else {
@@ -137,6 +137,9 @@ process align {
     # get the number of CPU threads to use
     JOBTHREADS=\${NSLOTS:-\${NTHREADS:-1}}
 
+    # get job id
+    TASK_JOBID="\${JOB_ID:-\${SLURM_JOB_ID:-none}}"
+
     # get the type of CPU being used
     if [ "\$(uname)" == "Darwin" ]; then
     CPULABEL="\$(sysctl -n machdep.cpu.brand_string)"
@@ -164,7 +167,7 @@ process align {
 
     CPUSEC="\$(grep 'Real time' .command.err | cut -d ';' -f2 | sed -e 's|^[^[:digit:]]*\\([[:digit:]]*\\.[[:digit:]]*\\).*\$|\\1|')"
 
-    printf "\${JOBTHREADS}\t${task.memory ?: 'none'}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\t\${TIMESTART}\t${workflow.profile ?: 'none'}\t${workflow.sessionId}\t${workflow.runName}\n" > "${output_tsv}"
+    printf "\${JOBTHREADS}\t${task.memory ?: 'none'}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\t\${TIMESTART}\t${workflow.profile ?: 'none'}\t${workflow.sessionId}\t${workflow.runName}\t\${TASK_JOBID:-none}\n" > "${output_tsv}"
 
     rm -f "${output_sam}"
     """
