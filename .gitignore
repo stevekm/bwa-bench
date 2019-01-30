@@ -12,3 +12,5 @@ output/*
 *.html*
 trace.txt*
 conda/*
+old
+recorded-runs/
