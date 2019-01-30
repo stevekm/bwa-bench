@@ -93,7 +93,8 @@ process download_ref {
 repeaters = 1..reps
 
 process align {
-    tag "${threads}-${rep}"
+    tag "${prefix}"
+    publishDir "${params.outputDir}/${workflowTimestamp_str}", overwrite: true, mode: 'copy'
     cpus { if (  workflow.profile == 'phoenix'){
             null
         } else {
@@ -102,7 +103,7 @@ process align {
     memory {
         if (  workflow.profile == 'bigpurple'){ // bigpurple complains a lot about memory
             8.GB * "${threads}".toInteger()
-        } else if (  workflow.profile == 'bigpurpleModule'){ 
+        } else if (  workflow.profile == 'bigpurpleModule'){
             8.GB * "${threads}".toInteger()
         } else {
             4.GB * "${threads}".toInteger()
@@ -125,9 +126,10 @@ process align {
 
     script:
     // mem = 2 * "${threads}".toInteger()
+    prefix = "${threads}-${rep}"
     mem = 'NA'
     output_sam = "sample.sam"
-    output_tsv = "time.tsv"
+    output_tsv = "time.${prefix}.tsv"
     sampleID = "SeraCare"
     """
     # name of current system
@@ -146,6 +148,7 @@ process align {
 
     printf "time start: %s" "\$(date +"%Y-%m-%d %H:%M:%S")"
 
+    TIMESTART=\$(date +"%Y-%m-%d-%H-%M-%S")
     ALIGNSTART=\$(date +%s)
 
     bwa mem \
@@ -161,7 +164,7 @@ process align {
 
     CPUSEC="\$(grep 'Real time' .command.err | cut -d ';' -f2 | sed -e 's|^[^[:digit:]]*\\([[:digit:]]*\\.[[:digit:]]*\\).*\$|\\1|')"
 
-    printf "\${JOBTHREADS}\t${mem}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\n" > "${output_tsv}"
+    printf "\${JOBTHREADS}\t${task.memory ?: 'none'}\t\${ALIGNSTOP:-none}\t\${CPUSEC:-none}\t\${NODE:-none}\t\${CPULABEL:-none}\t\${TIMESTART}\t${workflow.profile ?: 'none'}\t${workflow.sessionId}\t${workflow.runName}\n" > "${output_tsv}"
 
     rm -f "${output_sam}"
     """
